@@ -10,6 +10,7 @@
 *.pyo
 *.egg
 *.a
+build/*
  
 # Packages #
 ############
@@ -40,3 +41,7 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# IPython Notebook Checkpoints #
+################################
+examples/.ipynb_checkpoints/*
