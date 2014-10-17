@@ -2,11 +2,12 @@ import qecc as q
 import itertools as it
 import numpy as np
 from numpy import array, int16
-import random
+from random import getrandbits, randint, random
+from math import exp
 
 __all__ = ['free_energy_wt', 'coset_hist', 'freq_hist', 'toric_code',
              'starts', 'squares', 'stars', 'toric_log_xs', 
-             'toric_log_zs']
+             'toric_log_zs', 'metropolis']
 
 def free_energy_wt(nq, prob, weight):
     """
@@ -33,32 +34,39 @@ def coset_hist(stab_code, coset_rep=None):
 
     return vals, bins
 
-def metropolis(stab_code, paul=None, beta=0, t1=0, t2=1, n_trials=100):
-
+def metropolis(stab_code, paul=None, beta=0, t1=0, t2=1, n_trials=10000, method='gen'):
     """
     A metropolis alogorithm, starting at some Pauli P_{0} and adding 
-    stabilizers at random P' = SP_{i}, accepting the new pauli P' depending on its weight w(P') compared to the original weight w(P)
+    stabilizers at random P' = SP_{i}, accepting the new pauli P' 
+    depending on its weight w(P') compared to the original weight w(P).
+    
     If w(P') =< w(P), accept, i.e. P_{i+1} = P'
-    If w(P') > w(P), accept with propability exp[-beta  (w(P') - w(P))] < 1, otherwise P_{i+1} = P_{i}
+    If w(P') > w(P), accept with probability
+    exp[-beta  (w(P') - w(P))] < 1, otherwise P_{i+1} = P_{i}
 
-    It continues up to i=Trials
-    Standard value Trials = 100;
+    It continues up to i = n_trials
+    Standard value n_trials = 100
 
     beta is a parameter with beta>0, 
-    at beta = 0 changes are always excepted (high temperature)
-    at beta >>0 changes are never  excepted (low temperature)
-    Standard value beta = 0;
+    at beta =  0 changes are always excepted (high temperature)
+    at beta >> 0 changes are never  excepted (low temperature)
+    Standard value beta = 0
 
-    This algorithm returns a histogram of all weights w(P_i) where mod(i-T1,T2) = 1 and i>T1
+    This algorithm returns a histogram of all weights w(P_i) where 
+    mod(i-T1,T2) = 1 and i>T1.
+
     T1 should be understood as an equilibration time
-    T2 should be large enough such that the different values w(P) are uncorrelated
-    Standard values are T1 = 0; T2 = 1;
+    T2 should be large enough such that the different values w(P) are 
+    uncorrelated.
+    
+    Standard values are T1 = 0, T2 = 1.
 
-    The histogram contains Trials ceiling(Trials-T1/T2) entries
-    Most efficiently Trials-T1-1 is a multiple of T2 such that the last trial is also taken into the histogram 
+    The histogram contains n_trials ceiling(n_trials-T1/T2) entries
+    Most efficiently n_trials-T1-1 is a multiple of T2 such that the 
+    last trial is also taken into the histogram. 
     """
 
-    if paul == None
+    if paul is None:
         paul = q.eye_p(stab_code.nq)
     #endif
 
@@ -66,45 +74,44 @@ def metropolis(stab_code, paul=None, beta=0, t1=0, t2=1, n_trials=100):
     #r = n-k (number of generators)
     len_gens = stab_code.nq - stab_code.nq_logical
     
-    #number of stabilizers determines the heighest weight and thus the size of the histogram
+    #number of stabilizers determines the heighest weight and thus the
+    #size of the histogram
     vals = np.zeros((stab_code.nq + 1,))
 
     weight = paul.wt
 
     for i in xrange(n_trials):
-        #create candidate for new pauli
-        #produce a random bitstring
-        long_int = random.getrandbits(len_gens)
-        bit_list = map(int, bin(long_int)[2:])
-        bit_list = [0]*(len_gens - len(bit_list)) + bit_list
         
-        #take product of stabilizers with coset rep depending on bit
-        paul = coset_rep
-        for idx, stab in enumerate(stab_code.group_generators):
-            if bit_list[idx]:
-                paul *= stab
-        paul_new *= stab
+        #create candidate for new pauli
+        if method == 'gen':
+            stab = rand_gen(stab_code)
+        elif method == 'elem':
+            stab = rand_elem(stab_code)
+        else:
+            raise ValueError("method must be 'gen' or 'elem'")
+        
+        paul_new = paul * stab
         weight_new = paul_new.wt
 
         #accept candidate according to the metropolis rule
-        if weight_new <= weight or beta == 0
+        if weight_new <= weight or beta == 0 :
             paul = paul_new
             weight = weight_new
-        else
-            p = randomuniform(0,1)
-            if p < exp(-beta(weight_new - weight)) 
+        else:
+            p = random()
+            if p < exp(-beta * (weight_new - weight)): 
                 paul = paul_new
                 weight = weight_new
             #endif
         #endif
 
         #store weight in histogram
-        if i>T1 and mod(i-T1,T2) ==1
-            vals[weight] ++
+        if i > t1 and (i - t1 - 1) % t2 == 0:
+            vals[weight] += 1
         #endif
     #endfor
 
-return vals, paul
+    return vals, paul
 
 
 def freq_hist(stab_code, coset_rep=None, n_trials=10**5):
@@ -116,22 +123,18 @@ def freq_hist(stab_code, coset_rep=None, n_trials=10**5):
     vals = np.zeros((stab_code.nq + 1,))
     
     len_gens = stab_code.nq - stab_code.nq_logical
+    
     if coset_rep is None:
         coset_rep = q.eye_p(stab_code.nq)
+    
     for _ in xrange(n_trials):
+
         #produce a random bitstring
-        long_int = random.getrandbits(len_gens)
-        bit_list = map(int, bin(long_int)[2:])
-        bit_list = [0]*(len_gens - len(bit_list)) + bit_list
-        
-        #take product of stabilizers with coset rep depending on bit
-        paul = coset_rep
-        for idx, stab in enumerate(stab_code.group_generators):
-            if bit_list[idx]:
-                paul *= stab
+        paul = coset_rep * rand_stab(stab_code)
         
         #add weight to histogram
         vals[paul.wt] += 1
+    
     return vals, bins
 
 #Should be a static method in qecc.StabilizerCode
@@ -231,3 +234,28 @@ to_p_dict = lambda arr, pauli: {elem : pauli for elem in arr}
 
 def iter_pauli(ar, pl, sz):
     return q.Pauli.from_sparse(to_p_dict(ar, pl), sz)
+
+def rand_gen(stab_code):
+    """
+    Produces a random generator from a :class:`qecc.StabilizerCode` 
+    object.
+    """
+    gen_len = len(stab_code.group_generators)
+    idx = randint(0, gen_len - 1)
+    return stab_code.group_generators[idx]
+
+def rand_stab(stab_code):
+    """
+    For an input :class:`qecc.StabilizerCode` object, iterates over 
+    the entire generating set, using a random bitstring to select 
+    generators to multiply. 
+    """
+    long_int = random.getrandbits(len_gens)
+    bit_list = map(int, bin(long_int)[2:])
+    bit_list = [0]*(len_gens - len(bit_list)) + bit_list
+    
+    #take product of stabilizers with coset rep depending on bit
+    paul = q.eye_p(stab_code.nq)
+    for idx, stab in enumerate(stab_code.group_generators):
+        if bit_list[idx]:
+            paul *= stab
