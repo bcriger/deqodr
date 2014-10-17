@@ -33,76 +33,76 @@ def coset_hist(stab_code, coset_rep=None):
 
     return vals, bins
 
-def metropolis(stab_code, paul=None , beta=0, t1=0,t2=1,n_trials=100 ):
+def metropolis(stab_code, paul=None, beta=0, t1=0, t2=1, n_trials=100):
 
-	"""
-	A metrolpolis alogorithm, starting at some Pauli P_{0} and adding stabilizers at random P' = SP_{i} 
-	Accepting the new pauli P' depending on its weight w(P') compared to the original weight w(P)
-	If w(P') =< w(P), accept, i.e. P_{i+1} = P'
-	If w(P') > w(P), accept with propability exp[-beta  (w(P') - w(P))] < 1, otherwise P_{i+1} = P_{i}
+    """
+    A metropolis alogorithm, starting at some Pauli P_{0} and adding 
+    stabilizers at random P' = SP_{i}, accepting the new pauli P' depending on its weight w(P') compared to the original weight w(P)
+    If w(P') =< w(P), accept, i.e. P_{i+1} = P'
+    If w(P') > w(P), accept with propability exp[-beta  (w(P') - w(P))] < 1, otherwise P_{i+1} = P_{i}
 
-	It continues up to i=Trials
-	Standard value Trials = 100;
+    It continues up to i=Trials
+    Standard value Trials = 100;
 
-	beta is a parameter with beta>0, 
-	at beta = 0 changes are always excepted (high temperature)
-	at beta >>0 changes are never  excepted (low temperature)
-	Standard value beta = 0;
+    beta is a parameter with beta>0, 
+    at beta = 0 changes are always excepted (high temperature)
+    at beta >>0 changes are never  excepted (low temperature)
+    Standard value beta = 0;
 
-	This algorithm returns a histogram of all weights w(P_i) where mod(i-T1,T2) = 1 and i>T1
-	T1 should be understood as an equilibration time
-	T2 should be large enough such that the different values w(P) are uncorrelated
-	Standard values are T1 = 0; T2 = 1;
+    This algorithm returns a histogram of all weights w(P_i) where mod(i-T1,T2) = 1 and i>T1
+    T1 should be understood as an equilibration time
+    T2 should be large enough such that the different values w(P) are uncorrelated
+    Standard values are T1 = 0; T2 = 1;
 
-	The histogram contains Trials ceiling(Trials-T1/T2) entries
-	Most efficiently Trials-T1-1 is a multiple of T2 such that the last trial is also taken into the histogram 
-	"""
+    The histogram contains Trials ceiling(Trials-T1/T2) entries
+    Most efficiently Trials-T1-1 is a multiple of T2 such that the last trial is also taken into the histogram 
+    """
 
-	if paul == None
-		paul = q.eye_p(stab_code.nq)
-	#endif
+    if paul == None
+        paul = q.eye_p(stab_code.nq)
+    #endif
 
 
-	#r = n-k (number of generators)
-	len_gens = stab_code.nq - stab_code.nq_logical
-	
-	#number of stabilizers determines the heighest weight and thus the size of the histogram
-	vals = np.zeros((stab_code.nq + 1,))
+    #r = n-k (number of generators)
+    len_gens = stab_code.nq - stab_code.nq_logical
+    
+    #number of stabilizers determines the heighest weight and thus the size of the histogram
+    vals = np.zeros((stab_code.nq + 1,))
 
-	weight = paul.wt
+    weight = paul.wt
 
-	for i in xrange(n_trials):
-		#create candidate for new pauli
-		#produce a random bitstring
-		long_int = random.getrandbits(len_gens)
-		bit_list = map(int, bin(long_int)[2:])
-		bit_list = [0]*(len_gens - len(bit_list)) + bit_list
-		
-		#take product of stabilizers with coset rep depending on bit
-		paul = coset_rep
-		for idx, stab in enumerate(stab_code.group_generators):
-		    if bit_list[idx]:
-		        paul *= stab
-		paul_new *= stab
-		weight_new = paul_new.wt
+    for i in xrange(n_trials):
+        #create candidate for new pauli
+        #produce a random bitstring
+        long_int = random.getrandbits(len_gens)
+        bit_list = map(int, bin(long_int)[2:])
+        bit_list = [0]*(len_gens - len(bit_list)) + bit_list
+        
+        #take product of stabilizers with coset rep depending on bit
+        paul = coset_rep
+        for idx, stab in enumerate(stab_code.group_generators):
+            if bit_list[idx]:
+                paul *= stab
+        paul_new *= stab
+        weight_new = paul_new.wt
 
-		#accept candidate according to the metropolis rule
-		if weight_new <= weight or beta == 0
-			paul = paul_new
-			weight = weight_new
-		else
-			p = randomuniform(0,1)
-			if p < exp(-beta(weight_new - weight)) 
-				paul = paul_new
-				weight = weight_new
-			#endif
-		#endif
+        #accept candidate according to the metropolis rule
+        if weight_new <= weight or beta == 0
+            paul = paul_new
+            weight = weight_new
+        else
+            p = randomuniform(0,1)
+            if p < exp(-beta(weight_new - weight)) 
+                paul = paul_new
+                weight = weight_new
+            #endif
+        #endif
 
-		#store weight in histogram
-		if i>T1 and mod(i-T1,T2) ==1
-			vals[weight] ++
-		#endif
-	#endfor
+        #store weight in histogram
+        if i>T1 and mod(i-T1,T2) ==1
+            vals[weight] ++
+        #endif
+    #endfor
 
 return vals, paul
 
