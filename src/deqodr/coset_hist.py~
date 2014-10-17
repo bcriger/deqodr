@@ -33,7 +33,7 @@ def coset_hist(stab_code, coset_rep=None):
 
     return vals, bins
 
-def metropolis(stab_code, paul=None , beta=0, t1=0,t2=1,n_trials=100 ):
+def metrolopis(stab_code, paul=None , beta=0, t1=0,t2=1,n_trials=100 ):
 
 	"""
 	A metrolpolis alogorithm, starting at some Pauli P_{0} and adding stabilizers at random P' = SP_{i} 
